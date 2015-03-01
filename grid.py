@@ -16,18 +16,18 @@ class Grid:
             XY = [[float(digit) for digit in line.split()] for line in file]
         X = np.zeros([len(XY),1])
         Y = np.zeros([len(XY),1])
-        XTotal = np.zeros([len(X),1])
-        YTotal = np.zeros([len(Y),1])
         for i in range(0,len(X)):
             X[i] = XY[i][0]
             Y[i] = XY[i][1]
         self.X = np.concatenate(X); 
         self.Y = np.concatenate(Y);
-        XTotal[:,0] = self.X;
-        YTotal[:,0] = self.Y;
-        self.XTotal = XTotal;
-        self.YTotal = YTotal;
-        self.N = 1.;
+        self.Eta = 1.;
+    def calcArea(self):
+        # Function to calculate area based on a stretching function
+        maxIter = 1.;
+        dNdS = 1./1.
+        self.calcScoords();
+        self.Area = np.power(self.ds,2)*dNdS
     def calcScoords(self):
         # Function to calculate s-coordinates of grid (x,y) coordinates
         X = self.X; Y = self.Y;
@@ -35,6 +35,7 @@ class Grid:
         DX = np.insert(DX,0,0); DY = np.insert(DY,0,0);
         DS = np.sqrt(np.power(DX,2) + np.power(DY,2))
         self.S = np.cumsum(DS)
+        self.ds = np.diff(self.S)
     def interpolateSurf(self):
         # Function to interpolate the grid (x,y) coordinates
         X = self.X; Y = self.Y;
@@ -42,33 +43,39 @@ class Grid:
         s = self.S
         fX = interp1d(s,X,kind='cubic')
         fY = interp1d(s,Y,kind='cubic')
-        t2 = np.linspace(0,s[len(s)-1],400)
+        t2 = np.linspace(0,s[len(s)-1],200)
         self.Xinterp = fX(t2); self.Yinterp = fY(t2); self.Sinterp = t2
+        self.Xiinterp = np.arange(1,201)
+        self.ds = np.diff(self.Sinterp);
+        self.X = self.Xinterp; self.Y = self.Yinterp;
+        if self.Eta==1:
+            XTotal = np.zeros([len(self.Xinterp),1])
+            YTotal = np.zeros([len(self.Yinterp),1])
+            XTotal[:,0] = self.Xinterp;
+            YTotal[:,0] = self.Yinterp;
+            self.XTotal = XTotal;
+            self.YTotal = YTotal;
     def calcDxi(self):
         # Function to differentiate grid (x,y) coordinates in the xi direction
         # Second-order, central differencing
-        xi = self.Sinterp; x = self.Xinterp; y = self.Yinterp
-        dxi = xi[1]-xi[0]
-        DxDxi = np.zeros(len(xi))
-        DyDxi = np.zeros(len(xi))
-        DxDxi[1:len(DxDxi)-1] = (x[2:len(x)]-x[0:len(x)-2])/2/dxi
-        DyDxi[1:len(DyDxi)-1] = (y[2:len(y)]-y[0:len(y)-2])/2/dxi
-        DxDxi[0] = (x[1]-x[0])/dxi
-        DyDxi[0] = (y[1]-y[0])/dxi
-        DxDxi[len(x)-1] = (x[len(x)-1]-x[len(x)-2])/dxi
-        DyDxi[len(x)-1] = (y[len(y)-1]-y[len(y)-2])/dxi
-        fDxDxi = interp1d(xi,DxDxi,kind='cubic')
-        fDyDxi = interp1d(xi,DyDxi,kind='cubic')
-        self.DxDxi = fDxDxi(self.S)
-        self.DyDxi = fDyDxi(self.S)
+        x = self.X; y = self.Y;
+        DxDxi = np.zeros(len(x))
+        DyDxi = np.zeros(len(x))
+        DxDxi[1:len(DxDxi)-1] = (x[2:len(x)]-x[0:len(x)-2])/2
+        DyDxi[1:len(DyDxi)-1] = (y[2:len(y)]-y[0:len(y)-2])/2
+        DxDxi[0] = x[1]-x[0]
+        DyDxi[0] = y[1]-y[0]
+        DxDxi[len(x)-1] = (x[len(x)-1]-x[len(x)-2])
+        DyDxi[len(x)-1] = (y[len(y)-1]-y[len(y)-2])
+        self.DxDxi = DxDxi
+        self.DyDxi = DyDxi
     def calcDeta(self):
         # Function to calculate derivatives in the marching direction
         DxDxi = self.DxDxi; DyDxi = self.DyDxi;
-        dxi = np.diff(self.S);
-        k = self.N/20; self.detadxi = k;
-        Area = k*np.power(dxi,0)
-        Deta = np.zeros([len(dxi)+1,2])
-        for i in range(0,len(dxi)):
+        self.calcArea();
+        Area = self.Area
+        Deta = np.zeros([len(Area)+1,2])
+        for i in range(0,len(Area)):
             A = np.matrix([[DxDxi[i],DyDxi[i]],[-DyDxi[i],DxDxi[i]]]);
             f = np.array([[0],[Area[i]]])
             sol = np.matrix(np.linalg.solve(A,f))
@@ -83,13 +90,9 @@ class Grid:
         x = self.X; y = self.Y;
         xNP1 = np.zeros(len(x));
         yNP1 = np.zeros(len(x));
-        k = self.detadxi
-        dxi = np.zeros([len(x)])
-        dxi[0:len(dxi)-1] = np.diff(self.S)
-        dxi[len(dxi)-1] = dxi[len(dxi)-2]
         for i in range(0,len(xNP1)):
-            xNP1[i] = x[i] + DxDeta[i]*k*dxi[i]
-            yNP1[i] = y[i] + DyDeta[i]*k*dxi[i]
+            xNP1[i] = x[i] + DxDeta[i]
+            yNP1[i] = y[i] + DyDeta[i]
         xtotal = self.XTotal; ytotal = self.YTotal;
         Xcat = np.zeros([len(xtotal),np.size(xtotal,1)+1])
         Ycat = np.zeros([len(ytotal),np.size(ytotal,1)+1])
@@ -97,7 +100,7 @@ class Grid:
         Ycat[:,:-1] = ytotal; Ycat[:,np.size(Ycat,1)-1] = yNP1;
         self.XTotal = Xcat; self.YTotal = Ycat;
         self.X = xNP1; self.Y = yNP1
-        self.N = self.N+1
+        self.Eta = self.Eta+1
         
         
         

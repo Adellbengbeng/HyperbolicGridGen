@@ -7,8 +7,11 @@ import grid
 
 gridfile = "NACA23012.dat"
 mygrid = grid.Grid(gridfile)
-for i in range(0,19):
-    mygrid.interpolateSurf()
+mygrid.interpolateSurf()
+#mygrid.calcDxi()
+#mygrid.calcDeta()
+#mygrid.marchGrid()
+for i in range(0,5):
     mygrid.calcDxi()
     mygrid.calcDeta()
     mygrid.marchGrid()
@@ -16,8 +19,8 @@ for i in range(0,19):
 
 X = mygrid.XTotal
 Y = mygrid.YTotal
-plt.plot(X,Y,'k-',np.transpose(X),np.transpose(Y),'k-')
-#plt.plot(X[0,:],Y[0,:],'ko-',X[1,:],Y[1,:],'ko-')
+plt.plot(X,Y,'k-')
+plt.plot(np.transpose(X),np.transpose(Y),'b-')
 plt.axis('equal')
 plt.draw()
 plt.show()
